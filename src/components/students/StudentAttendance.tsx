@@ -6,7 +6,7 @@ import type { Database } from '../../lib/database.types';
 type Attendance = Database['public']['Tables']['attendance']['Row'];
 
 interface StudentAttendanceProps {
-  studentId: string;
+  studentId: number;
 }
 
 const StudentAttendance: React.FC<StudentAttendanceProps> = ({ studentId }) => {
@@ -139,7 +139,7 @@ const StudentAttendance: React.FC<StudentAttendanceProps> = ({ studentId }) => {
       <div className="card">
         <h3 className="text-lg font-medium mb-4">Subject-wise Attendance</h3>
 
-        <div className="space-y-4">
+        {/* <div className="space-y-4">
           {subjectWiseAttendance.map((item) => (
             <div key={item.subject} className="space-y-1">
               <div className="flex justify-between text-sm">
@@ -159,7 +159,7 @@ const StudentAttendance: React.FC<StudentAttendanceProps> = ({ studentId }) => {
               </div>
             </div>
           ))}
-        </div>
+        </div> */}
       </div>
 
       {/* Attendance details table */}

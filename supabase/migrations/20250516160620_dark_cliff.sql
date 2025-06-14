@@ -55,7 +55,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS students (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   name text NOT NULL,
-  email text UNIQUE NOT NULL,
+  email text,
   phone text,
   address text,
   dob date,
@@ -84,15 +84,15 @@ CREATE TABLE IF NOT EXISTS attendance (
   student_id uuid REFERENCES students(id) ON DELETE CASCADE,
   date date NOT NULL,
   status text NOT NULL,
-  subject text NOT NULL,
   created_at timestamptz DEFAULT now()
 );
 
 -- Performance table
 CREATE TABLE IF NOT EXISTS performance (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  student_id uuid REFERENCES students(id) ON DELETE CASCADE,
+  -- id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  -- student_id uuid REFERENCES students(id) ON DELETE CASCADE,
   exam_name text NOT NULL,
+  student_name text NOT NULL,
   date date NOT NULL,
   marks numeric NOT NULL,
   total_marks numeric NOT NULL,

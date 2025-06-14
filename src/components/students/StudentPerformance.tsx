@@ -6,10 +6,10 @@ import type { Database } from '../../lib/database.types';
 type Performance = Database['public']['Tables']['performance']['Row'];
 
 interface StudentPerformanceProps {
-  studentId: string;
+  studentName: string;
 }
 
-const StudentPerformance: React.FC<StudentPerformanceProps> = ({ studentId }) => {
+const StudentPerformance: React.FC<StudentPerformanceProps> = ({ studentName }) => {
   const [selectedExamType, setSelectedExamType] = useState('All');
   const [performance, setPerformance] = useState<Performance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +19,7 @@ const StudentPerformance: React.FC<StudentPerformanceProps> = ({ studentId }) =>
     const fetchPerformance = async () => {
       try {
         setLoading(true);
-        const data: Performance[] = await performanceService.getByStudentId(studentId);
+        const data: Performance[] = await performanceService.getByStudentId(studentName);
         setPerformance(data);
       } catch (err: unknown) {
         if (err instanceof Error) {
@@ -33,7 +33,7 @@ const StudentPerformance: React.FC<StudentPerformanceProps> = ({ studentId }) =>
     };
 
     fetchPerformance();
-  }, [studentId]);
+  }, [studentName]);
 
   const filteredPerformance = performance.filter(
     item => selectedExamType === 'All' || item.exam_name.includes(selectedExamType)

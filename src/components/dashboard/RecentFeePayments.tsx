@@ -33,7 +33,7 @@ const RecentFeePayments: React.FC = () => {
         <thead>
           <tr>
             <th>Student</th>
-            <th>Course</th>
+            <th>Descroiption</th>
             <th>Amount</th>
             <th>Date</th>
             <th>Status</th>

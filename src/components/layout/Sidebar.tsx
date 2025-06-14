@@ -9,7 +9,8 @@ import {
   TrendingUp, 
   CreditCard, 
   Settings, 
-  LogOut, 
+  LogOut,
+  BookCheck, 
   X
 } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
@@ -108,11 +109,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
               }`
             }
           >
-            <TrendingUp className="mr-3 h-5 w-5" />
+            <BookCheck className="mr-3 h-5 w-5" />
             <span>Performance</span>
           </NavLink>
           
-          <NavLink 
+          {/* <NavLink 
             to="/courses" 
             className={({ isActive }) => 
               `flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
@@ -124,9 +125,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
           >
             <BookOpen className="mr-3 h-5 w-5" />
             <span>Courses</span>
-          </NavLink>
+          </NavLink> */}
           
-          <NavLink 
+          {/* <NavLink 
             to="/settings" 
             className={({ isActive }) => 
               `flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
@@ -138,7 +139,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
           >
             <Settings className="mr-3 h-5 w-5" />
             <span>Settings</span>
-          </NavLink>
+          </NavLink> */}
         </nav>
       </div>
       

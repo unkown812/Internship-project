@@ -3,6 +3,7 @@ import { attendanceService } from '../../services/attendanceService';
 
 interface AttendanceData {
   name: string;
+  category: string;
   value: number;
 }
 
@@ -16,28 +17,28 @@ const AttendanceChart: React.FC = () => {
       try {
         setLoading(true);
         const data = await attendanceService.getAll();
-       
         const attendanceMap: Record<string, { present: number; total: number }> = {};
-
-        data.forEach((record: any) => {
-          const key = record.subject || 'Unknown';
+        data.forEach((record: { category?: string; status?: string | null }) => {
+          const key = record.category || 'Unknown';
           if (!attendanceMap[key]) {
             attendanceMap[key] = { present: 0, total: 0 };
           }
           attendanceMap[key].total += 1;
-          if (record.status.toLowerCase() === 'present') {
+          if (record.status && record.status.toLowerCase() === 'present') {
             attendanceMap[key].present += 1;
           }
         });
 
-        const aggregatedData = Object.entries(attendanceMap).map(([name, counts]) => ({
-          name,
+        const aggregatedData = Object.entries(attendanceMap).map(([category, counts]) => ({
+          name: category,
+          category,
           value: counts.total > 0 ? Math.round((counts.present / counts.total) * 100) : 0,
         }));
 
         setAttendanceData(aggregatedData);
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch attendance data');
+      } catch (err) {
+        const error = err as Error;
+        setError(error.message || 'Failed to fetch attendance data');
       } finally {
         setLoading(false);
       }
@@ -52,7 +53,7 @@ const AttendanceChart: React.FC = () => {
   return (
     <div className="space-y-4">
       {attendanceData.map((item) => (
-        <div key={item.name} className="space-y-1">
+        <div key={item.category} className="space-y-1">
           <div className="flex justify-between text-sm">
             <span className="font-medium">{item.name}</span>
             <span className="text-gray-500">{item.value}%</span>

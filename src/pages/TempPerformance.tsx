@@ -38,24 +38,7 @@ const Performance: React.FC = () => {
   const [editTotalMarks, setEditTotalMarks] = useState<number | ''>('');
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
-  // const [selectedGroupRecords, setSelectedGroupRecords] = useState<PerformanceRecord[] | null>(null);
-  // const [selectedGroupInfo, setSelectedGroupInfo] = useState<{ exam_name: string; date: string } | null>(null);
-  const [selectedGroupRecords, setSelectedGroupRecords] = useState<PerformanceRecord[] | null>(null);
-  const [selectedGroupInfo, setSelectedGroupInfo] = useState<{ exam_name: string; date: string } | null>(null);
   const categories = ['All', 'School (8-10th)', 'Junior College (11-12th)', 'Diploma', 'Degree', 'JEE', 'NEET', 'MHCET'];
-
-  // New state for multiple entries
-  interface NewEntry {
-    studentName: string;
-    obtainedMarks: number | '';
-  }
-  const [newEntries, setNewEntries] = useState<NewEntry[]>([
-    { studentName: '', obtainedMarks: '' }
-  ]);
-  const [newExamName, setNewExamName] = useState<string>('');
-  const [newDate, setNewDate] = useState<string>('');
-  const [newCategory, setNewCategory] = useState<string>('');
-  const [newTotalMarks, setNewTotalMarks] = useState<number | ''>('');
   useEffect(() => {
     fetchData();
   }, []);
@@ -115,42 +98,19 @@ const Performance: React.FC = () => {
     ? performanceSummary.reduce((prev, current) =>
       prev.avgPerformance > current.avgPerformance ? prev : current) : null;
 
-  // Group performance records by exam_name and date
-  interface GroupedPerformance {
-    exam_name: string;
-    date: string;
-    records: PerformanceRecord[];
-  }
-
-  const groupedPerformance: GroupedPerformance[] = [];
-
-  // Filter performance by search and category first
   const filteredPerformance = performance.filter(record => {
     const matchesSearch = record.student_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || record.student_category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  // Group filtered performance by exam_name and date
-  filteredPerformance.forEach(record => {
-    const groupIndex = groupedPerformance.findIndex(
-      group => group.exam_name === record.exam_name && group.date === record.date
-    );
-    if (groupIndex === -1) {
-      groupedPerformance.push({
-        exam_name: record.exam_name,
-        date: record.date,
-        category: record.student_category,
-        records: [record],
-      });
-    } else {
-      groupedPerformance[groupIndex].records.push(record);
-    }
-  });
-
   //No Gyaan Found
   const saveNewPerformance = async () => {
     setFormError(null);
+    if (newStudentName.trim() == '') {
+      setFormError('Please select a student or enter a new student name.');
+      return;
+    }
     if (!newExamName.trim()) {
       setFormError('Please enter the subject/exam name.');
       return;
@@ -159,56 +119,43 @@ const Performance: React.FC = () => {
       setFormError('Please select the date of the test.');
       return;
     }
-    if (!newCategory) {
-      setFormError('Please select the category.');
+    if (newObtainedMarks === '' || newObtainedMarks < 0) {
+      setFormError('Please enter valid obtained marks.');
       return;
     }
     if (newTotalMarks === '' || newTotalMarks <= 0) {
       setFormError('Please enter valid total marks.');
       return;
     }
-    if (newEntries.length === 0) {
-      setFormError('Please add at least one student entry.');
-      return;
-    }
-    for (let i = 0; i < newEntries.length; i++) {
-      const entry = newEntries[i];
-      if (entry.studentName.trim() === '') {
-        setFormError(`Please enter student name for entry ${i + 1}.`);
-        return;
-      }
-      if (entry.obtainedMarks === '' || entry.obtainedMarks < 0) {
-        setFormError(`Please enter valid obtained marks for entry ${i + 1}.`);
-        return;
-      }
-    }
     setSaving(true);
-    const recordsToInsert = newEntries.map(entry => {
-      const percentage = (Number(entry.obtainedMarks) / Number(newTotalMarks)) * 100;
-      return {
-        exam_name: newExamName.trim(),
-        date: newDate,
-        marks: entry.obtainedMarks,
-        total_marks: newTotalMarks,
-        percentage,
-        student_name: entry.studentName.trim(),
-        student_category: newCategory
-      };
+    const calculatedPercentage = (Number(newObtainedMarks) / Number(newTotalMarks)) * 100;
+    console.log('Inserting performance record:', {
+      exam_name: newExamName.trim(),
+      date: newDate,
+      marks: newObtainedMarks,
+      total_marks: newTotalMarks,
+      percentage: calculatedPercentage,
+      student_name: newStudentName.trim(),
+      student_category: newStudentCategory.trim()
     });
-    console.log('Inserting performance records:', recordsToInsert);
-    const { error } = await supabase.from('performance').insert(recordsToInsert);
-    if (error) {
-      setFormError(error.message);
-      setSaving(false);
-      return;
-    }
+    const { error } = await supabase.from('performance').insert([{
+      exam_name: newExamName.trim(),
+      date: newDate,
+      marks: newObtainedMarks,
+      total_marks: newTotalMarks,
+      percentage: calculatedPercentage,
+      student_name: newStudentName.trim(),
+      student_category: newStudentCategory.trim()
+    }]);
+    if (error) throw error;
     await fetchData();
     setShowAddModal(false);
     setSearchTerm('');
-    setNewEntries([{ studentName: '', obtainedMarks: '' }]);
+    setNewStudentName('');
+    setNewStudentCategory('');
     setNewExamName('');
     setNewDate('');
-    setNewCategory('');
+    setNewObtainedMarks('');
     setNewTotalMarks('');
     setSaving(false);
   };
@@ -220,6 +167,7 @@ const Performance: React.FC = () => {
   if (error) {
     return <div className="text-red-500">Error loading data: {error}</div>;
   }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -259,6 +207,41 @@ const Performance: React.FC = () => {
               <div className="mb-4">
               </div>
               <div className="mb-4">
+                <label htmlFor="newStudentName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Student Name
+                </label>
+                <input
+                  type="text"
+                  id="newStudentName"
+                  className="input-field w-full"
+                  value={newStudentName}
+                  onChange={(e) => {
+                    setNewStudentName(e.target.value);
+                  }}
+                  placeholder="Enter student name"
+                  aria-label="Student Name"
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="newStudentCategory" className="block text-sm font-medium text-gray-700 mb-1">
+                  Category
+                </label>
+                <select
+                  id="newStudentCategory"
+                  className="input-field w-full"
+                  value={newStudentCategory}
+                  onChange={(e) => setNewStudentCategory(e.target.value)}
+                  required
+                  aria-label="Student Category"
+                >
+                  <option value="" disabled>Select category</option>
+                  {categories.filter(cat => cat !== 'All').map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
                 <label htmlFor="examName" className="block text-sm font-medium text-gray-700 mb-1">
                   Subject / Exam Name
                 </label>
@@ -272,6 +255,7 @@ const Performance: React.FC = () => {
                   aria-label="Subject or Exam Name"
                 />
               </div>
+
               <div className="mb-4">
                 <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
                   Date of Test
@@ -286,31 +270,33 @@ const Performance: React.FC = () => {
                   aria-label="Date of Test"
                 />
               </div>
+
               <div className="mb-4">
-                <label htmlFor="newCategory" className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
+                <label htmlFor="marks" className="block text-sm font-medium text-gray-700 mb-1">
+                  Obtained Marks
                 </label>
-                <select
-                  id="newCategory"
+                <input
+                  type="number"
+                  id="marks"
                   className="input-field w-full"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
+                  value={newObtainedMarks}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewObtainedMarks(val === '' ? '' : Number(val));
+                  }}
+                  min={0}
                   required
-                  aria-label="Category"
-                >
-                  <option value="" disabled>Select category</option>
-                  {categories.filter(cat => cat !== 'All').map(category => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
+                  aria-label="Obtained Marks"
+                />
               </div>
+
               <div className="mb-4">
-                <label htmlFor="newTotalMarks" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="totalMarks" className="block text-sm font-medium text-gray-700 mb-1">
                   Total Marks
                 </label>
                 <input
                   type="number"
-                  id="newTotalMarks"
+                  id="totalMarks"
                   className="input-field w-full"
                   value={newTotalMarks}
                   onChange={(e) => {
@@ -321,74 +307,6 @@ const Performance: React.FC = () => {
                   required
                   aria-label="Total Marks"
                 />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Student Entries
-                </label>
-                {newEntries.map((entry, index) => (
-                  <div key={index} className="mb-4 border p-3 rounded-md">
-                    <div className="mb-2">
-                      <label htmlFor={`studentName-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                        Student Name
-                      </label>
-                      <input
-                        type="text"
-                        id={`studentName-${index}`}
-                        className="input-field w-full"
-                        value={entry.studentName}
-                        onChange={(e) => {
-                          const updatedEntries = [...newEntries];
-                          updatedEntries[index].studentName = e.target.value;
-                          setNewEntries(updatedEntries);
-                        }}
-                        placeholder="Enter student name"
-                        aria-label="Student Name"
-                      />
-                    </div>
-                    <div className="mb-2">
-                      <label htmlFor={`obtainedMarks-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                        Obtained Marks
-                      </label>
-                      <input
-                        type="number"
-                        id={`obtainedMarks-${index}`}
-                        className="input-field w-full"
-                        value={entry.obtainedMarks}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const updatedEntries = [...newEntries];
-                          updatedEntries[index].obtainedMarks = val === '' ? '' : Number(val);
-                          setNewEntries(updatedEntries);
-                        }}
-                        min={0}
-                        required
-                        aria-label="Obtained Marks"
-                      />
-                    </div>
-                    <div className="flex justify-end">
-                      {newEntries.length > 1 && (
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          onClick={() => {
-                            const updatedEntries = newEntries.filter((_, i) => i !== index);
-                            setNewEntries(updatedEntries);
-                          }}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => setNewEntries([...newEntries, { studentName: '', obtainedMarks: '' }])}
-                >
-                  Add Another Student
-                </button>
               </div>
 
               <div className="flex justify-end">
@@ -472,6 +390,7 @@ const Performance: React.FC = () => {
           <button
             className="btn-secondary flex items-center"
             onClick={() => {
+              // Convert filteredPerformance to CSV
               const headers = ['Result ID', 'Student Name', 'Category', 'Exam Name', 'Date', 'Marks Obtained', 'Total Marks', 'Percentage'];
               const rows = filteredPerformance.map(record => [
                 record.result_id,
@@ -488,11 +407,12 @@ const Performance: React.FC = () => {
                 ...rows.map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
               ].join('\r\n');
 
+              // Create a blob and trigger download
               const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
               const url = URL.createObjectURL(blob);
               const link = document.createElement('a');
               link.href = url;
-              link.setAttribute('download', 'test_report.csv');
+              link.setAttribute('download', 'performance_export.csv');
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
@@ -506,34 +426,34 @@ const Performance: React.FC = () => {
       </div>
 
       <div className="table-container hover:bg-teal-200">
-        <table className="data-table rounded-xl shadow-skewmorphism text-center">
+        <table className="data-table rounded-xl">
           <thead>
-            <tr className='text-center'>
-              <th>Exam Name</th>
+            <tr>
+              <th>Result ID</th>
+              <th>Student</th>
+              <th>Course</th>
+              <th>Test</th>
               <th>Date</th>
-              <th className='text-center'>Course</th>
+              <th>Marks</th>
               <th>Actions</th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-gray-200">
-            {groupedPerformance.length > 0 ? (
-              groupedPerformance.map((group, index) => {
+            {filteredPerformance.length > 0 ? (
+              filteredPerformance.map((record, index) => {
                 return (
-                  <tr key={`${group.exam_name}-${group.date}`}>
-                    <td>{group.exam_name}</td>
-                    <td>{group.date}</td>
-                    <td className='text-center'>{group.category}</td>
+                  <tr key={record.result_id}>
+                    <td className="font-medium">{index + 1}</td>
+                    <td>{record.student_name}</td>
+                    <td>{record.student_category}</td>
+                    <td>{record.exam_name}</td>
+                    <td>{record.date}</td>
+                    <td>{record.marks} / {record.total_marks}</td>
                     <td>
                       <button
                         className="text-primary hover:text-primary-dark font-medium"
-                        onClick={() => {
-                          setSelectedPerformanceRecord(null);
-                          setIsEditMode(false);
-                          setFormError(null);
-                          setSelectedGroupRecords(group.records);
-                          setSelectedGroupInfo({ exam_name: group.exam_name, date: group.date });
-                        }}
+                        onClick={() => setSelectedPerformanceRecord(record)}
                       >
                         View Details
                       </button>
@@ -543,7 +463,7 @@ const Performance: React.FC = () => {
               })
             ) : (
               <tr>
-                <td colSpan={4} className="text-center py-4 text-gray-500">
+                <td colSpan={7} className="text-center py-4 text-gray-500">
                   No performance records found
                 </td>
               </tr>
@@ -558,68 +478,229 @@ const Performance: React.FC = () => {
           <span className="font-medium"> {filteredPerformance.length}</span> results
         </div>
       </div>
-
-      {selectedGroupRecords && selectedGroupInfo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6 relative max-h-[80vh] overflow-y-auto">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-              onClick={() => {
-                setSelectedGroupRecords(null);
-                setSelectedGroupInfo(null);
+      
+      {selectedPerformanceRecord && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+          <button
+            className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+            onClick={() => {
+              setSelectedPerformanceRecord(null);
+              setIsEditMode(false);
+              setFormError(null);
+            }}
+            aria-label="Close modal"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <h2 className="text-xl font-semibold mb-4">
+            {isEditMode ? 'Edit Performance Result' : 'Performance Details'}
+          </h2>
+          {isEditMode ? (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setFormError(null);
+                if (editStudentName.trim() === '') {
+                  setFormError('Please enter a student name.');
+                  return;
+                }
+                if (editStudentCategory.trim() === '') {
+                  setFormError('Please select a student category.');
+                  return;
+                }
+                if (editExamName.trim() === '') {
+                  setFormError('Please enter the subject/exam name.');
+                  return;
+                }
+                if (!editDate) {
+                  setFormError('Please select the date of the test.');
+                  return;
+                }
+                if (editObtainedMarks === '' || editObtainedMarks < 0) {
+                  setFormError('Please enter valid obtained marks.');
+                  return;
+                }
+                if (editTotalMarks === '' || editTotalMarks <= 0) {
+                  setFormError('Please enter valid total marks.');
+                  return;
+                }
+                setSaving(true);
+                const calculatedPercentage = (Number(editObtainedMarks) / Number(editTotalMarks)) * 100;
+                const { error } = await supabase
+                  .from('performance')
+                  .update({
+                    student_name: editStudentName.trim(),
+                    student_category: editStudentCategory.trim(),
+                    exam_name: editExamName.trim(),
+                    date: editDate,
+                    marks: editObtainedMarks,
+                    total_marks: editTotalMarks,
+                    percentage: calculatedPercentage,
+                  })
+                  .eq('result_id', selectedPerformanceRecord.result_id);
+                if (error) {
+                  setFormError(error.message);
+                  setSaving(false);
+                  return;
+                }
+                await fetchData();
+                setSaving(false);
+                setIsEditMode(false);
+                setSelectedPerformanceRecord(null);
               }}
-              aria-label="Close modal"
             >
-              <X className="h-5 w-5" />
-            </button>
-            <h2 className="text-xl font-semibold mb-4">
-              Test Results for {selectedGroupInfo.exam_name} on {selectedGroupInfo.date}
-            </h2>
-            <table className="data-table rounded-xl w-full">
-              <thead>
-                <tr>
-                  <th>Student Name</th>
-                  <th>Category</th>
-                  <th>Marks</th>
-                  <th>Total Marks</th>
-                  <th>Percentage</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedGroupRecords.map((record) => (
-                  <tr key={record.result_id}>
-                    <td>{record.student_name}</td>
-                    <td>{record.student_category}</td>
-                    <td>{record.marks}</td>
-                    <td>{record.total_marks}</td>
-                    <td>{record.percentage.toFixed(2)}%</td>
-                    <td>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => {
-                          setSelectedPerformanceRecord(record);
-                          setIsEditMode(true);
-                          setEditStudentName(record.student_name);
-                          setEditStudentCategory(record.student_category);
-                          setEditExamName(record.exam_name);
-                          setEditDate(record.date);
-                          setEditObtainedMarks(record.marks);
-                          setEditTotalMarks(record.total_marks);
-                          setFormError(null);
-                        }}
-                      >
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              {formError && <div className="mb-4 text-red-600">{formError}</div>}
+              <div className="mb-4">
+                <label htmlFor="editStudentName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Student Name
+                </label>
+                <input
+                  type="text"
+                  id="editStudentName"
+                  className="input-field w-full"
+                  value={editStudentName}
+                  onChange={(e) => setEditStudentName(e.target.value)}
+                  aria-label="Student Name"
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="editStudentCategory" className="block text-sm font-medium text-gray-700 mb-1">
+                  Category
+                </label>
+                <select
+                  id="editStudentCategory"
+                  className="input-field w-full"
+                  value={editStudentCategory}
+                  onChange={(e) => setEditStudentCategory(e.target.value)}
+                  aria-label="Student Category"
+                >
+                  <option value="" disabled>Select category</option>
+                  {categories.filter(cat => cat !== 'All').map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-4">
+                <label htmlFor="editExamName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Subject / Exam Name
+                </label>
+                <input
+                  type="text"
+                  id="editExamName"
+                  className="input-field w-full"
+                  value={editExamName}
+                  onChange={(e) => setEditExamName(e.target.value)}
+                  aria-label="Subject or Exam Name"
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="editDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  Date of Test
+                </label>
+                <input
+                  type="date"
+                  id="editDate"
+                  className="input-field w-full"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  aria-label="Date of Test"
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="editObtainedMarks" className="block text-sm font-medium text-gray-700 mb-1">
+                  Obtained Marks
+                </label>
+                <input
+                  type="number"
+                  id="editObtainedMarks"
+                  className="input-field w-full"
+                  value={editObtainedMarks}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEditObtainedMarks(val === '' ? '' : Number(val));
+                  }}
+                  min={0}
+                  aria-label="Obtained Marks"
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="editTotalMarks" className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Marks
+                </label>
+                <input
+                  type="number"
+                  id="editTotalMarks"
+                  className="input-field w-full"
+                  value={editTotalMarks}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEditTotalMarks(val === '' ? '' : Number(val));
+                  }}
+                  min={0}
+                  aria-label="Total Marks"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="btn-secondary mr-2"
+                  onClick={() => {
+                    setIsEditMode(false);
+                    setFormError(null);
+                  }}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <p><strong>Student Name:</strong> {selectedPerformanceRecord?.student_name}</p>
+                <p><strong>Category:</strong> {selectedPerformanceRecord?.student_category}</p>
+                <p><strong>Exam Name:</strong> {selectedPerformanceRecord?.exam_name}</p>
+                <p><strong>Date:</strong> {selectedPerformanceRecord?.date}</p>
+                <p><strong>Marks:</strong> {selectedPerformanceRecord?.marks} / {selectedPerformanceRecord?.total_marks}</p>
+                <p><strong>Percentage:</strong> {selectedPerformanceRecord?.percentage.toFixed(2)}%</p>
+              </div>
+              <div className="flex justify-between mt-6">
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    setIsEditMode(true);
+                    setEditStudentName(selectedPerformanceRecord.student_name);
+                    setEditStudentCategory(selectedPerformanceRecord.student_category);
+                    setEditExamName(selectedPerformanceRecord.exam_name);
+                    setEditDate(selectedPerformanceRecord.date);
+                    setEditObtainedMarks(selectedPerformanceRecord.marks);
+                    setEditTotalMarks(selectedPerformanceRecord.total_marks);
+                    setFormError(null);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    setSelectedPerformanceRecord(null);
+                    setIsEditMode(false);
+                    setFormError(null);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    )}
+  </div>
   );
 }
 

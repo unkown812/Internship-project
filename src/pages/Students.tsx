@@ -11,21 +11,22 @@ import {
 import supabase from '../lib/supabase';
 
 interface Student {
-  id?: number;
+  id?: string;
   name: string;
   category: string;
   course: string;
+  year: number;
   email: string;
   phone: string;
   enrollment_date: string;
   fee_status: string;
-  total_fee: number; // total fee amount for the student
-  paid_fee: number;  // amount paid so far
+  total_fee: number;
+  paid_fee: number;
+  installment_amt: number;
+  installments: number;
 }
-
 const Students: React.FC = () => {
   const navigate = useNavigate();
-
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,25 +39,27 @@ const Students: React.FC = () => {
     name: '',
     category: 'School',
     course: '',
+    year: 0,
     email: '',
     phone: '',
     enrollment_date: new Date().toISOString().split('T')[0],
     fee_status: 'Unpaid',
     total_fee: 0,
     paid_fee: 0,
+    installment_amt: 0,
+    installments: 1,
   });
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [feeAmount, setFeeAmount] = useState<number>(0);
+  const [feeAmount, setFeeAmount] = useState<number | null>(0);
 
   // Function to handle row click and navigate to student detail page
-  const handleRowClick = (studentId?: number) => {
+  const handleRowClick = (studentId?: string) => {
     if (studentId) {
       navigate(`/students/${studentId}`);
     }
   };
 
-  // Function to convert data to CSV and trigger download
   const exportToCSV = () => {
     if (filteredStudents.length === 0) {
       alert('No student data to export.');
@@ -68,6 +71,7 @@ const Students: React.FC = () => {
       'Name',
       'Category',
       'Course',
+      'Year',
       'Email',
       'Phone',
       'Enrollment Date',
@@ -75,6 +79,8 @@ const Students: React.FC = () => {
       'Total Fee',
       'Paid Fee',
       'Remaining Fee',
+      'Installment Amount',
+      'Installments'
     ];
 
     const csvRows = [
@@ -85,6 +91,7 @@ const Students: React.FC = () => {
           `"${student.name.replace(/"/g, '""')}"`,
           `"${student.category.replace(/"/g, '""')}"`,
           `"${student.course.replace(/"/g, '""')}"`,
+          student.year,
           `"${student.email.replace(/"/g, '""')}"`,
           `"${student.phone.replace(/"/g, '""')}"`,
           student.enrollment_date,
@@ -92,6 +99,8 @@ const Students: React.FC = () => {
           student.total_fee,
           student.paid_fee,
           (student.total_fee || 0) - (student.paid_fee || 0),
+          student.installment_amt,
+          student.installments,
         ];
         return row.join(',');
       }),
@@ -130,31 +139,21 @@ const Students: React.FC = () => {
     'School',
     'Junior College',
     'Diploma',
-    'Degree',
     'Entrance Exams'
   ];
 
-  // Define courses for each category
   const schoolCourses = [
-    'SSC 8th',
-    'SSC 9th',
-    'SSC 10th',
-    'CBSE 8th',
-    'CBSE 9th',
-    'CBSE 10th',
-    'ICSE 8th',
-    'ICSE 9th',
-    'ICSE 10th',
+    'SSC',
+    'CBSE',
+    'ICSE',
     'Others',
   ];
 
   const juniorCollegeCourses = ['Science', 'Commerce', 'Arts'];
 
   const diplomaBranches = ['Computer Science', 'Mechanical', 'Electrical', 'Civil'];
-  const diplomaYears = ['1st Year', '2nd Year', '3rd Year'];
 
-  const degreeBranches = ['B.Tech Computer Science', 'B.Tech Mechanical', 'B.Com', 'B.A'];
-  const degreeYears = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+
 
   const entranceExamCourses = ['NEET', 'JEE', 'MHTCET', 'Boards'];
 
@@ -166,26 +165,9 @@ const Students: React.FC = () => {
       case 'Junior College':
         setStudentCourses(juniorCollegeCourses);
         break;
-      case 'Diploma': {
-        const diplomaCourses: string[] = [];
-        for (const branch of diplomaBranches) {
-          for (const year of diplomaYears) {
-            diplomaCourses.push(`${branch} - ${year}`);
-          }
-        }
-        setStudentCourses(diplomaCourses);
+      case 'Diploma':
+        setStudentCourses(diplomaBranches);
         break;
-      }
-      case 'Degree': {
-        const degreeCourses: string[] = [];
-        for (const branch of degreeBranches) {
-          for (const year of degreeYears) {
-            degreeCourses.push(`${branch} - ${year}`);
-          }
-        }
-        setStudentCourses(degreeCourses);
-        break;
-      }
       case 'Entrance Exams':
         setStudentCourses(entranceExamCourses);
         break;
@@ -214,12 +196,15 @@ const Students: React.FC = () => {
       name: '',
       category: 'School',
       course: '',
+      year: 0,
       email: '',
       phone: '',
       enrollment_date: new Date().toISOString().split('T')[0],
       fee_status: 'Unpaid',
-      total_fee: null, 
-      paid_fee: null,
+      total_fee: 0,
+      paid_fee: 0,
+      installment_amt: 0,
+      installments: 1
     });
     setAddError(null);
     setStudentCourses(schoolCourses);
@@ -227,10 +212,34 @@ const Students: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setNewStudent((prev) => ({
-      ...prev,
-      [name]: name === 'total_fee' || name === 'paid_fee' ? Number(value) : value,
-    }));
+
+    if (name === 'total_fee') {
+      const totalFeeNum = Number(value);
+      let installmentsNum = newStudent.installments;
+      if (installmentsNum < 1) installmentsNum = 1;
+      if (installmentsNum > 24) installmentsNum = 24;
+      const installmentAmt = installmentsNum > 0 ? totalFeeNum / installmentsNum : 0;
+      setNewStudent((prev) => ({
+        ...prev,
+        total_fee: totalFeeNum,
+        installment_amt: installmentAmt,
+      }));
+    } else if (name === 'installments') {
+      let installmentsNum = Number(value);
+      if (installmentsNum < 1) installmentsNum = 1;
+      if (installmentsNum > 24) installmentsNum = 24;
+      const installmentAmt = installmentsNum > 0 ? (newStudent.total_fee || 0) / installmentsNum : 0;
+      setNewStudent((prev) => ({
+        ...prev,
+        installments: installmentsNum,
+        installment_amt: installmentAmt,
+      }));
+    } else {
+      setNewStudent((prev) => ({
+        ...prev,
+        [name]: name === 'paid_fee' ? Number(value) : value,
+      }));
+    }
   };
 
   const handleAddStudentSubmit = async () => {
@@ -243,15 +252,31 @@ const Students: React.FC = () => {
         return;
       }
 
-      const { error } = await supabase.from('students').insert([newStudent]);
+      // parse numeric fields before submit
+      const totalFeeNum = Number(newStudent.total_fee);
+      const installmentsNum = Math.min(Math.max(Number(newStudent.installments), 1), 24);
+      const installmentAmtNum = installmentsNum > 0 ? totalFeeNum / installmentsNum : 0;
+
+      const studentToInsert = {
+        ...newStudent,
+        total_fee: totalFeeNum,
+        installments: installmentsNum,
+        installment_amt: installmentAmtNum,
+      };
+
+      const { error } = await supabase.from('students').insert([studentToInsert]);
       if (error) {
         setAddError(error.message);
       } else {
         setShowAddModal(false);
         fetchStudents();
       }
-    } catch (err: any) {
-      setAddError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setAddError(err.message);
+      } else {
+        setAddError(String(err));
+      }
     }
     setAdding(false);
   };
@@ -264,19 +289,18 @@ const Students: React.FC = () => {
     setShowFeeModal(true);
   };
 
-  // Handle fee amount change
   const handleFeeAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFeeAmount(Number(e.target.value));
   };
 
-  // Save fee status and update paid_fee
   const handleFeeUpdate = async () => {
-    if (feeAmount <= 0) {
+    if (feeAmount === null || feeAmount <= 0) {
       setAddError('Please enter a positive amount.');
       return;
     }
     const updatedPaidFee = (newStudent.paid_fee || 0) + feeAmount;
-    const updatedFeeStatus = updatedPaidFee >= (newStudent.total_fee || 0) ? 'Paid' : 'Partial';
+    const totalFeeNum = Number(newStudent.total_fee) || 0;
+    const updatedFeeStatus = updatedPaidFee >= totalFeeNum ? 'Paid' : 'Partial';
 
     setAdding(true);
     setAddError(null);
@@ -292,15 +316,19 @@ const Students: React.FC = () => {
         setShowFeeModal(false);
         fetchStudents();
       }
-    } catch (err: any) {
-      setAddError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setAddError(err.message);
+      } else {
+        setAddError(String(err));
+      }
     }
     setAdding(false);
   };
 
-  // Calculate remaining fee
   const getRemainingFee = (student: Student) => {
-    return (student.total_fee || 0) - (student.paid_fee || 0);
+    const totalFeeNum = Number(student.total_fee) || 0;
+    return totalFeeNum - (student.paid_fee || 0);
   };
 
   return (
@@ -339,7 +367,7 @@ const Students: React.FC = () => {
         <div className="flex space-x-4">
           <div className="relative">
             <select
-              title="SelectCat"
+              title="text"
               className="input-field appearance-none pr-8"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -375,54 +403,92 @@ const Students: React.FC = () => {
       </div>
 
       {/* Students Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="table-container overflow-x-auto">
+        <table className="data-table rounded-xl">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Name</th>
               <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Category</th>
-              {/* <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Course</th> */}
+              <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Course</th>
+              <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Year</th>
               <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Contact</th>
               {/* <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Enrollment</th> */}
               <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Fee Status</th>
+              <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Installments</th>
+              <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Installment Amount</th>
               {/* <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Remaining Fee</th> */}
               <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredStudents.map((student) => (
-              <tr key={student.id} onClick={() => handleRowClick(student.id)} className="cursor-pointer">
-                <td className="px-4 py-2 font-medium">{student.name}</td>
-                <td className="px-4 py-2">
-                  <span className="px-2 py-1 text-x text-blue-800">{student.category}</span>
-                </td>
-                {/* <td className="px-4 py-2">
-                  <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">{student.course}</span>
-                </td> */}
-                <td className="px-4 py-2">
-                  <div>{student.phone}</div>
-                  <div className="text-sm text-gray-500">{student.email}</div>
-                </td>
-                {/* <td className="px-4 py-2">{new Date(student.enrollment_date).toLocaleDateString()}</td> */}
-                <td className={`px-10  py-1  m-3 text-xs font-medium ${student.fee_status === 'Paid' ? ' text-green-800' : student.fee_status === 'Partial' ? ' text-yellow-500' : ' text-red-800'}`}>
-                  {student.fee_status}
-                </td>
-                {/* <td className="px-4 py-2 font-medium text-gray-700">₹{getRemainingFee(student)}</td> */}
-                <td className="px-1 py-1">
-                  <Link to={`/students/${student.id}`} className="text-blue-600 hover:text-blue-800 font-small">
-                    Details 
-                  </Link>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenFeeModal(student);
-                    }}
-                    className="text-blue-400 hover:text-black-800 font-small inline-block ml-2"
-                  >
-                    Fees
-                  </button>
-                </td>
-              </tr>
+            {Object.entries(
+              filteredStudents.reduce((acc, student) => {
+                if (!acc[student.category]) {
+                  acc[student.category] = {};
+                }
+                if (!acc[student.category][student.course]) {
+                  acc[student.category][student.course] = [];
+                }
+                acc[student.category][student.course].push(student);
+                return acc;
+              }, {} as Record<string, Record<string, Student[]>>)
+            ).map(([category, courses]) => (
+              <React.Fragment key={category}>
+                <tr className="bg-gray-200">
+                  <td colSpan={9} className="px-4 py-2 font-bold text-xl text-blue-800">
+                    {category}
+                  </td>
+                </tr>
+                {Object.entries(courses).map(([course, students]) => (
+                  <React.Fragment key={course}>
+                    <tr className="bg-gray-100">
+                      <td colSpan={9} className="px-6 py-1 font-small text-md text-blue-200">
+                        {course}
+                      </td>
+                    </tr>
+                    {students.map((student) => (
+                      <tr key={student.id} onClick={() => handleRowClick(student.id)} className="cursor-pointer">
+                        <td className="px-4 py-2 font-medium">{student.name}</td>
+                        <td className="px-4 py-2">
+                          <span className="px-2 py-1 text-sm  text-blue-800">{student.category}</span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className="px-2 py-1 text-sm text-purple-800">{student.course}</span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className="px-2 py-1 text-sm text-purple-800">{student.year}</span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <div>{student.phone}</div>
+                          <div className="text-sm text-gray-500">{student.email}</div>
+                        </td>
+                        <td className={`px-4 py-2 text-xs font-medium ${student.fee_status === 'Paid' ? 'text-green-700' :
+                          student.fee_status === 'Partial' ? 'text-yellow-700' :
+                            'text-red-700'
+                          }`}>
+                          {student.fee_status}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">{student.installments}</td>
+                        <td className="px-4 py-2 text-sm font-medium">₹{student.installment_amt.toFixed(2)}</td>
+                        <td className="px-1 py-1">
+                          <Link to={`/students/${student.id}`} className="text-blue-600 hover:text-blue-800 font-small">
+                            Details
+                          </Link>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenFeeModal(student);
+                            }}
+                            className="text-blue-400 hover:text-black-800 font-small inline-block ml-2"
+                          >
+                            Fees
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -434,13 +500,6 @@ const Students: React.FC = () => {
           Showing {' '}
           <span className="font-medium text-primary">{filteredStudents.length}</span> students
         </div>
-        {/* <div className="flex space-x-2">
-          <button className="px-3 py-1 border rounded bg-gray-50">Previous</button>
-          <button className="px-3 py-1 border rounded bg-blue-600 text-white">1</button>
-          <button className="px-3 py-1 border rounded">2</button>
-          <button className="px-3 py-1 border rounded">3</button>
-          <button className="px-3 py-1 border rounded bg-gray-50">Next</button>
-        </div> */}
       </div>
 
       {/* Add Student Modal */}
@@ -507,6 +566,20 @@ const Students: React.FC = () => {
                 </select>
               </div>
               <div>
+                <label htmlFor="year" className="block text-sm font-medium text-gray-700">Year</label>
+                <input
+                  type="number"
+                  name="year"
+                  id="year"
+                  value={newStudent.year}
+                  onChange={handleInputChange}
+                  className="input-field mt-1"
+                  min={1}
+                  max={13}
+                  required
+                />
+              </div>
+              <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
                 <input
                   type="email"
@@ -552,6 +625,32 @@ const Students: React.FC = () => {
                   onChange={handleInputChange}
                   className="input-field mt-1"
                   min={0}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="installments" className="block text-sm font-medium text-gray-700">Installments (1-24)</label>
+                <input
+                  type="number"
+                  name="installments"
+                  id="installments"
+                  value={newStudent.installments || ''}
+                  onChange={handleInputChange}
+                  className="input-field mt-1"
+                  min={1}
+                  max={24}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="installment_amt" className="block text-sm font-medium text-gray-700">Installment Amount (₹)</label>
+                <input
+                  type="number"
+                  name="installment_amt"
+                  id="installment_amt"
+                  value={isNaN(newStudent.installment_amt) ? '' : Number(newStudent.installment_amt.toFixed(2))}
+                  readOnly
+                  className="input-field mt-1 bg-gray-100 cursor-not-allowed"
                 />
               </div>
               <div>
@@ -607,7 +706,7 @@ const Students: React.FC = () => {
                     type="number"
                     id="feeAmount"
                     min={0}
-                    value={feeAmount}
+                    value={feeAmount ?? ''}
                     onChange={handleFeeAmountChange}
                     className="input-field mt-1"
                     placeholder="Enter amount to add"

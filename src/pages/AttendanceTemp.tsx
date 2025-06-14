@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import supabase from '../lib/supabase';
 
 interface Student {
-  id: string;
+  id: number;
   name: string;
   category: string;
 }

@@ -19,7 +19,6 @@ const Dashboard: React.FC = () => {
         const students = await studentService.getAll();
         setTotalStudents(students.length);
 
-        // Fetch fee summary from students table for fee collection using supabase client
         const { data: studentsData, error } = await supabase
           .from('students')
           .select('total_fee, paid_fee');
@@ -93,6 +92,8 @@ const Dashboard: React.FC = () => {
           <UpcomingExams />
         </div>
       </div>
+
+     
     </div>
   );
 };

@@ -16,11 +16,11 @@ export const attendanceService = {
     return data;
   },
 
-  async getByStudentId(studentId: string) {
+  async getByStudentId(studentId: number) {
     const { data, error } = await supabase
       .from('attendance')
       .select('*')
-      .eq('student_id', studentId)
+      .eq('id', studentId)
       .order('date', { ascending: false });
 
     if (error) throw error;

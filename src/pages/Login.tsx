@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { GraduationCap } from 'lucide-react';
 import { useUser } from '../context/UserContext';
-import { Outlet, Link } from "react-router-dom";
-import Register from './Register';
+import {  Link } from "react-router-dom";
+// import Register from './Register';
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
